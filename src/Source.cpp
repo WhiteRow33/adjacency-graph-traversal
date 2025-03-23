@@ -4,391 +4,295 @@
 #include <fstream>
 #include <sstream>
 #include <conio.h>  // For _kbhit() and _getch()
+
 #include "LinkedList.h"
 #include "Queue.h"
 #include "DynamicIntStack.h"
 
 using namespace std;
 
-// Read inputs from file to the vector
+// --- Function Declarations ---
+
 void readEdges(vector<vector<int>>& edges, vector<string>& illegalEdges, int& vertexCount);
 void bubbleSortEdges(vector<vector<int>>& edges);
-// Build vector of LinkedLists using the input vector
 void buildAdjacencyList(int vertexCount, const vector<vector<int>>& edges, LinkedList* adjList);
+
 void addEdge(LinkedList* adjList, int vertexCount);
 void removeEdge(LinkedList* adjList, int vertexCount);
 void displayGraph(const LinkedList* adjList, int vertexCount);
+
 void depthFirstSearch(const LinkedList* adjList, int vertexCount);
 void breadthFirstSearch(const LinkedList* adjList, int vertexCount);
-// Helper function for DFS and BFS
-bool isVisited(int v, vector<int>& visitedVertices);
+
+bool isVisited(int v, const vector<int>& visitedVertices);
+
+
+// --- Main Menu Program ---
 
 int main() {
-	int vertexCount = 0;
-	vector<vector<int>> edges;
-	vector<string> illegalEdges; // Vector to store illegal edges
+    int vertexCount = 0;
+    vector<vector<int>> edges;
+    vector<string> illegalEdges;
 
-	// Read edges from the file
-	readEdges(edges, illegalEdges, vertexCount);
+    readEdges(edges, illegalEdges, vertexCount);
+    bubbleSortEdges(edges);
 
-	// Sort edges by the first vertex using bubble sort
-	bubbleSortEdges(edges);
+    LinkedList* adjList = new LinkedList[vertexCount];
+    buildAdjacencyList(vertexCount, edges, adjList);
 
-	// Build adjacency list from sorted edges
-	LinkedList* adjList = new LinkedList[vertexCount];
-	buildAdjacencyList(vertexCount, edges, adjList);
+    if (!illegalEdges.empty()) {
+        cout << "\nThese edges are illegal or repeated:\n";
+        for (const string& edge : illegalEdges) {
+            cout << edge << endl;
+        }
+        cout << endl;
+    }
 
-	// Print illegal edges if any
-	if (!illegalEdges.empty()) {
-		cout << endl << "These edges are illegal or repeated:" << endl;
-		for (const string& edge : illegalEdges) {
-			cout << edge << endl;
-		}
-		cout << endl;
-	}
+    int choice = 0;
+    do {
+        cout << "   (1) Add edge\n"
+             << "   (2) Remove edge\n"
+             << "   (3) Display the graph\n"
+             << "   (4) Depth-first search\n"
+             << "   (5) Breadth-first search\n"
+             << "   (6) Exit\n"
+             << "Please enter a number (1-6):\n";
 
-	// Menu loop
-	int choice = 0;
-	do {
-		// Display menu options
-		cout << "   (1) Add edge" << endl;
-		cout << "   (2) Remove edge" << endl;
-		cout << "   (3) Display the graph" << endl;
-		cout << "   (4) Depth-first search" << endl;
-		cout << "   (5) Breadth-first search" << endl;
-		cout << "   (6) Exit" << endl;
+        do {
+            cin >> choice;
+            if (cin.fail() || choice < 1 || choice > 6) {
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cout << "Invalid input! Please enter a valid number (1-6):\n";
+                choice = 0;
+            }
+        } while (choice < 1 || choice > 6);
 
-		cout << "Please enter a number (1-6):" << endl;
+        switch (choice) {
+            case 1: addEdge(adjList, vertexCount); break;
+            case 2: removeEdge(adjList, vertexCount); break;
+            case 3: displayGraph(adjList, vertexCount); break;
+            case 4: depthFirstSearch(adjList, vertexCount); break;
+            case 5: breadthFirstSearch(adjList, vertexCount); break;
+            case 6: cout << "Program exiting...\n"; break;
+        }
 
-		do {
-			cin >> choice;
-			// Check for invalid input (non-integer values)
-			if (cin.fail()) {
-				cin.clear(); // Clear the error flag
-				cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Discard invalid input
-				cout << "The entered number is not valid! Make another choice:" << endl;
-				choice = 0; // Reset choice to continue the loop
-			}
-			else if (choice < 1 || choice > 6) {
-				cout << "The entered number is not valid! Make another choice:" << endl;
-			}
-		} while (choice < 1 || choice > 6);
+    } while (choice != 6);
 
-		switch (choice) {
-		case 1:
-			addEdge(adjList, vertexCount); // Function to add an edge
-			break;
-		case 2:
-			removeEdge(adjList, vertexCount); // Function to remove an edge
-			break;
-		case 3:
-			displayGraph(adjList, vertexCount); // Function to display the graph
-			break;
-		case 4:
-			depthFirstSearch(adjList, vertexCount); // Function for DFS
-			break;
-		case 5:
-			breadthFirstSearch(adjList, vertexCount); // Function for BFS
-			break;
-		case 6:
-			cout << "Program Exiting..." << endl;
-			break;
-		default:
-			cout << "The entered number is not valid! Make another choice:" << endl;
-			break;
-		}
-	} while (choice != 6);
-
-	return 0;
+    delete[] adjList;
+    return 0;
 }
 
-// Read inputs from file to the vector
+// --- Input & Preprocessing ---
+
 void readEdges(vector<vector<int>>& edges, vector<string>& illegalEdges, int& vertexCount) {
-	string filename;
-	ifstream file;
+    string filename;
+    ifstream file;
 
-	// Prompt for the file name until it is opened successfully
-	do {
-		cout << "Enter the input file name:" << endl;
-		cin >> filename;
-		file.open(filename);
-		if (!file.is_open()) {
-			cout << "Could not open the file " << filename << endl;
-		}
-	} while (!file.is_open());
+    // Try opening file until success
+    do {
+        cout << "Enter the input file name:\n";
+        cin >> filename;
+        file.open(filename);
+        if (!file.is_open()) {
+            cout << "Could not open the file " << filename << endl;
+        }
+    } while (!file.is_open());
 
-	// Read edges from the file
-	string line;
-	while (getline(file, line)) {
-		istringstream iss(line);
-		int u, v;
-		char extraChar;
+    string line;
+    while (getline(file, line)) {
+        istringstream iss(line);
+        int u, v;
+        char extraChar;
 
-		// Read exactly two integers
-		if ((iss >> u >> v) && !(iss >> extraChar)) {
-			if (u < 0 || v < 0) {
-				illegalEdges.push_back(line); // Add illegal edge to the list
-				continue; // Ignore negative vertices
-			}
+        if ((iss >> u >> v) && !(iss >> extraChar)) {
+            if (u < 0 || v < 0) {
+                illegalEdges.push_back(line);
+                continue;
+            }
 
-			// Check for duplicates in the edge list
-			bool isDuplicate = false;
-			for (int i = 0; i < edges.size(); ++i) {
-				if (edges[i][0] == u && edges[i][1] == v) {
-					isDuplicate = true;
-					break;
-				}
-			}
+            bool isDuplicate = false;
+            for (const auto& edge : edges) {
+                if (edge[0] == u && edge[1] == v) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
 
-			if (!isDuplicate) {
-				edges.push_back({ u, v }); // Add unique edges only
-				vertexCount = max(vertexCount, max(u, v) + 1); // Find and update the max vertex count
-			}
-			else {
-				illegalEdges.push_back(line); // Add duplicate edge to the illegal list
-			}
-		}
-		else {
-			illegalEdges.push_back(line); // Add illegal edge to the list for invalid input
-		}
-	}
+            if (!isDuplicate) {
+                edges.push_back({u, v});
+                vertexCount = max(vertexCount, max(u, v) + 1);
+            } else {
+                illegalEdges.push_back(line);
+            }
+        } else {
+            illegalEdges.push_back(line);
+        }
+    }
 
-	file.close();
+    file.close();
 }
 
-
-// Function to perform bubble sort on the edges
 void bubbleSortEdges(vector<vector<int>>& edges) {
-	int n = edges.size();
-	for (int i = 0; i < n - 1; ++i) {
-		for (int j = 0; j < n - i - 1; ++j) {
-			// Compare the first elements of the pairs
-			if (edges[j][0] > edges[j + 1][0]) {
-				vector<int> temp = edges[j];
-				edges[j] = edges[j + 1];
-				edges[j + 1] = temp;
-			}
-		}
-	}
+    int n = edges.size();
+    for (int i = 0; i < n - 1; ++i) {
+        for (int j = 0; j < n - i - 1; ++j) {
+            if (edges[j][0] > edges[j + 1][0]) {
+                swap(edges[j], edges[j + 1]);
+            }
+        }
+    }
 }
 
-// Build vector of LinkedLists using the sorted input vector
 void buildAdjacencyList(int vertexCount, const vector<vector<int>>& edges, LinkedList* adjList) {
-    for (int i = 0; i < edges.size(); ++i) {
-        int u = edges[i][0];
-        int v = edges[i][1];
+    for (const auto& edge : edges) {
+        int u = edge[0];
+        int v = edge[1];
         if (!adjList[u].contains(v)) {
             adjList[u].insert(v);
         }
     }
 }
 
+// --- Graph Manipulation ---
+
 void addEdge(LinkedList* adjList, int vertexCount) {
-	int from, to;
-	cout << "Enter two nodes as two endings of the new edge" << endl;
+    int from, to;
+    cout << "Enter two nodes as the endpoints of the new edge:\n";
 
-	while (true) {
-		cin >> from >> to;
+    while (true) {
+        cin >> from >> to;
 
-		// If the input is invalid
-		if (cin.fail()) {
-			cin.clear(); // Clear the error flag on cin
-			cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Discard invalid input
-			cout << "Invalid input! Please enter integer values for node IDs." << endl;
-			continue;
-		}
+        if (cin.fail() || from == to || from < 0 || from >= vertexCount || to < 0 || to >= vertexCount) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter two distinct valid node IDs:\n";
+            continue;
+        }
 
-		// Check if the nodes are within the valid range
-		if (from < 0 || from >= vertexCount || to < 0 || to >= vertexCount) {
-			cout << "The entered node IDs are out of range. Please enter two valid IDs:" << endl;
-			continue;
-		}
+        if (adjList[from].contains(to)) {
+            cout << "This edge already exists.\n";
+            continue;
+        }
 
-		// Check if from and to are the same
-		if (from == to) {
-			cout << "The entered node IDs are same. Please enter two valid IDs:" << endl;
-			continue;
-		}
-
-		// Check if the edge already exists
-		if (adjList[from].contains(to)) {
-			cout << "This edge already exists." << endl;
-			continue;
-		}
-
-		// Insert the edge into the adjacency list
-		adjList[from].insert(to);
-		cout << "The new edge is added." << endl;
-		break;
-	}
-	cout << endl;
+        adjList[from].insert(to);
+        cout << "Edge added successfully.\n\n";
+        break;
+    }
 }
 
-
 void removeEdge(LinkedList* adjList, int vertexCount) {
-	int from, to;
-	cout << "Enter two nodes as two endings of the edge" << endl;
+    int from, to;
+    cout << "Enter two nodes as the endpoints of the edge to remove:\n";
 
+    while (true) {
+        cin >> from >> to;
 
+        if (cin.fail() || from < 0 || from >= vertexCount || to < 0 || to >= vertexCount) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Please enter valid node IDs:\n";
+            continue;
+        }
 
-	while (true) {
-		cin >> from >> to;
+        if (!adjList[from].contains(to)) {
+            cout << "Edge does not exist. Try again:\n";
+            continue;
+        }
 
-		// If the input is invalid
-		if (cin.fail()) {
-			cin.clear(); // Clear the error flag on cin
-			cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Discard invalid input
-			cout << "Invalid input! Please enter integer values for node IDs." << endl;
-			continue;
-		}
-
-		// Check if the nodes are within the valid range
-		if (from < 0 || from >= vertexCount || to < 0 || to >= vertexCount) {
-			cout << "The entered node IDs are out of range, Enter two other IDs:" << endl;
-			continue;
-		}
-
-		// Check if the edge exists
-		Node* current = adjList[from].head;
-		bool edgeExists = false;
-		while (current != nullptr) {
-			if (current->value == to) {
-				edgeExists = true;
-				break;
-			}
-			current = current->next;
-		}
-
-		if (!edgeExists) {
-			cout << "The entered edge does not exist in the graph! Enter two other node IDs:" << endl;
-			continue;
-		}
-
-		adjList[from].remove(to);
-		cout << "The entered edge is removed." << endl;
-		break;
-	}
-	cout << endl;
+        adjList[from].remove(to);
+        cout << "Edge removed successfully.\n\n";
+        break;
+    }
 }
 
 void displayGraph(const LinkedList* adjList, int vertexCount) {
-	cout << "The graph has this structure:" << endl;
-	for (int i = 0; i < vertexCount; ++i) {
-		cout << i << " ->"; // Print the vertex number followed by "->"
-		Node* current = adjList[i].head;
-		if (current) { // Only print the arrows for connected nodes
-			while (current) {
-				cout << " " << current->value;
-				current = current->next;
-				if (current) {
-					cout << " ->";
-				}
-			}
-		}
-		cout << endl;
-	}
+    cout << "Current graph structure:\n";
+    for (int i = 0; i < vertexCount; ++i) {
+        cout << i << " ->";
+        Node* current = adjList[i].head;
+        while (current) {
+            cout << " " << current->value;
+            if (current->next) cout << " ->";
+            current = current->next;
+        }
+        cout << endl;
+    }
 
-	cout << "Press any key to continue..." << endl;
-
-	while (true) {
-		if (_kbhit()) {  // Check if a key is pressed
-			char ch = _getch();  // Get the pressed key without waiting for Enter
-			break;
-		}
-	}
+    cout << "Press any key to continue...\n";
+    while (!_kbhit()) {}
+    _getch();
 }
 
+// --- Traversals ---
+
 void breadthFirstSearch(const LinkedList* adjList, int vertexCount) {
-	int v = 0;
-	Queue Q;
-	vector<int> visitedVertices;
-	cout << "Please enter starting node:" << endl;
+    int start;
+    cout << "Enter starting node for BFS:\n";
+    while (!(cin >> start) || start < 0 || start >= vertexCount) {
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "Invalid input. Enter a valid node ID:\n";
+    }
 
-	//Check if the input is in the range
-	while (true) {
-		cin >> v;
+    Queue q;
+    vector<int> visited;
+    q.enqueue(start);
+    visited.push_back(start);
 
-		if (v < 0 || v >= vertexCount) {
-			cout << "The entered node number is out of range, enter a valid one:" << endl;
-			continue;
-		}
-		break;
-	}
+    cout << "BFS traversal order:\n";
+    while (!q.isEmpty()) {
+        int current = q.frontElement();
+        cout << current << " ";
+        q.dequeue();
 
-	cout << "Breadth - first search starting from node " << v << ":" << endl;
-
-	Q.enqueue(v);
-	visitedVertices.push_back(v); // Mark the starting node as visited
-
-	Node* current = adjList[v].head;
-
-	while (!(Q.isEmpty())) {
-		int currentVertex = Q.frontElement();
-		cout << currentVertex << " ";
-		Q.dequeue();
-
-		Node* current = adjList[currentVertex].head;
-
-		while (current != nullptr) {
-			if (!isVisited(current->value, visitedVertices)) {
-				Q.enqueue(current->value);
-				visitedVertices.push_back(current->value); // Mark the node as visited
-			}
-			current = current->next;
-		}
-	}
-	cout << endl << endl;
-
+        Node* node = adjList[current].head;
+        while (node) {
+            if (!isVisited(node->value, visited)) {
+                q.enqueue(node->value);
+                visited.push_back(node->value);
+            }
+            node = node->next;
+        }
+    }
+    cout << "\n\n";
 }
 
 void depthFirstSearch(const LinkedList* adjList, int vertexCount) {
-	int startVertex;
-	cout << "Please enter starting node:" << endl;
+    int start;
+    cout << "Enter starting node for DFS:\n";
+    while (!(cin >> start) || start < 0 || start >= vertexCount) {
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "Invalid input. Enter a valid node ID:\n";
+    }
 
-	//Check if the input is in the range
-	while (true) {
-		cin >> startVertex;
+    DynamicIntStack stack;
+    vector<int> visited;
+    stack.push(start);
+    visited.push_back(start);
 
-		if (startVertex < 0 || startVertex >= vertexCount) {
-			cout << "The entered node number is out of range, enter a valid one:" << endl;
-			continue;
-		}
-		break;
-	}
+    cout << "DFS traversal order:\n";
+    while (!stack.isEmpty()) {
+        int current;
+        stack.pop(current);
+        cout << current << " ";
 
-	DynamicIntStack stack;
-	vector<int> visitedVertices;
-
-	cout << "Depth-first search starting from node " << startVertex << ":" << endl;
-
-	stack.push(startVertex);
-	visitedVertices.push_back(startVertex); // Mark the starting node as visited
-
-	while (!stack.isEmpty()) {
-		int currentVertex;
-		stack.pop(currentVertex);
-
-		cout << currentVertex << " ";
-
-		Node* current = adjList[currentVertex].head;
-
-		while (current != nullptr) {
-			if (!isVisited(current->value, visitedVertices)) {
-				stack.push(current->value);
-				visitedVertices.push_back(current->value); // Mark the node as visited
-			}
-			current = current->next;
-		}
-	}
-	cout << endl << endl;
+        Node* node = adjList[current].head;
+        while (node) {
+            if (!isVisited(node->value, visited)) {
+                stack.push(node->value);
+                visited.push_back(node->value);
+            }
+            node = node->next;
+        }
+    }
+    cout << "\n\n";
 }
 
-// Helper function for DFS and BFS
-bool isVisited(int v, vector<int>& visitedVertices) {
-	for (int i = 0; i < visitedVertices.size(); i++) {
-		if (visitedVertices[i] == v) {
-			return true;
-		}
-	}
-	return false;
+bool isVisited(int v, const vector<int>& visitedVertices) {
+    for (int x : visitedVertices) {
+        if (x == v) return true;
+    }
+    return false;
 }
