@@ -25,17 +25,11 @@ The program reads edges from an input file, validates them, builds the graph, an
 The input file should contain one edge per line in the format:
 
 <from_node> <to_node>
-
-Example:
-0 1 1 2 2 0
-
-
 - Only non-negative integers are valid
 - Invalid or duplicate edges will be reported but not processed
 
-## Project Structure
-
-graph-explorer/ ├── src/ │ ├── Source.cpp # Main program and menu logic │ ├── LinkedList.cpp/.h # Adjacency list implementation │ ├── Queue.cpp/.h # Queue used in BFS │ ├── DynamicIntStack.cpp/.h # Stack used in DFS │ ├── data/ │ └── example_input.txt # Sample input file │ ├── build/ # Compiled binary output ├── .gitignore ├── LICENSE └── README.md
+Example:
+0 1 1 2 2 0
 
 ## How to Build
 
