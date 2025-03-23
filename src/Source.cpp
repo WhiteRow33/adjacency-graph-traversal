@@ -1,4 +1,3 @@
-//Yunus Emre Ulusoy 32663
 #include <iostream>
 #include <vector>
 #include <string>
