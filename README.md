@@ -30,10 +30,3 @@ The input file should contain one edge per line in the format:
 
 Example:
 0 1 1 2 2 0
-
-## How to Build
-
-Use `g++` or another standard-compliant C++ compiler:
-
-```bash
-g++ src/*.cpp -o build/graph
